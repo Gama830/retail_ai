@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Dashboard - Retail AI{% endblock %}
+
+{% block extra_head %}{# Add block for potential page-specific CSS #}
+<style>
+    /* Custom styles to mimic ecomus */
+    .kpi-card .card-body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between; /* Push chart placeholder to the right */
+    }
+    .kpi-card .kpi-content {
+        flex-grow: 1;
+    }
+    .kpi-card .mini-chart-placeholder {
+        width: 80px; /* Adjust as needed */
+        height: 40px;
+        /* background-color: #f0f0f0; */ /* Optional: placeholder bg */
+        /* border: 1px dashed #ccc; */ /* Optional: placeholder border */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: #aaa;
+    }
+    .top-product-item img {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        margin-right: 10px;
+        border-radius: 5px;
+    }
+    .chart-container {
+        position: relative; 
+        height: 300px; /* Ensure container has height */
+    }
+    .top-products-container .list-group {
+        max-height: 350px; /* Adjust scroll height */
+        overflow-y: auto;
+    }
+    .revenue-summary {
+        margin-bottom: 1.5rem; /* Space between summary and chart */
+    }
+    .revenue-summary .value {
+        font-size: 1.75rem; /* Larger font for the value */
+        font-weight: 600;
+        display: block; /* Ensure value is on its own line */
+        margin-bottom: 0.1rem;
+    }
+    .revenue-summary .label {
+        font-size: 0.9rem;
+        color: #6c757d; /* Bootstrap text-muted color */
+    }
+    .revenue-summary .indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+        vertical-align: middle;
+    }
+    .indicator-revenue {
+        background-color: #ff9f40; /* Orange for revenue */
+    }
+    .indicator-order {
+        background-color: #a388ff; /* Purple for order */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h2 mb-4">Dashboard Overview</h1>
+
+    {# Row 1: KPI Cards #}
+    <div class="row gy-4 mb-4">
+        {# Total Earnings Card #}
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm h-100 kpi-card">
+                <div class="card-body">
+                    <div class="kpi-content">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="bg-success-subtle text-success rounded-circle p-2 me-2">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <span class="text-muted small">Total Earnings</span>
+                        </div>
+                        <div class="h4 fw-bold mb-0">₹{{ total_earnings|floatformat:2|intcomma }}</div>
+                        <div class="small {% if earnings_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="fas {% if earnings_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>
+                            {{ earnings_change|floatformat:2 }}%
+                        </div>
+                    </div>
+                    <div class="mini-chart-placeholder"><canvas id="earningsMiniChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        {# Total Orders Card #}
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm h-100 kpi-card">
+                <div class="card-body">
+                     <div class="kpi-content">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="bg-warning-subtle text-warning rounded-circle p-2 me-2">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <span class="text-muted small">Total Orders</span>
+                        </div>
+                        <div class="h4 fw-bold mb-0">{{ total_orders|intcomma }}</div>
+                         <div class="small {% if orders_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="fas {% if orders_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>
+                            {{ orders_change|floatformat:2 }}%
+                        </div>
+                    </div>
+                    <div class="mini-chart-placeholder"><canvas id="ordersMiniChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        {# Total Customers Card #}
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm h-100 kpi-card">
+                <div class="card-body">
+                    <div class="kpi-content">
+                        <div class="d-flex align-items-center mb-2">
+                             <div class="bg-info-subtle text-info rounded-circle p-2 me-2">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <span class="text-muted small">Total Customers</span>
+                        </div>
+                        <div class="h4 fw-bold mb-0">{{ total_customers|intcomma }}</div>
+                        <div class="small {% if customers_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="fas {% if customers_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>
+                            {{ customers_change|floatformat:2 }}%
+                        </div>
+                    </div>
+                    <div class="mini-chart-placeholder"><canvas id="customersMiniChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+        
+        {# Net Profit Card #}
+         <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm h-100 kpi-card">
+                <div class="card-body">
+                    <div class="kpi-content">
+                        <div class="d-flex align-items-center mb-2">
+                             <div class="bg-primary-subtle text-primary rounded-circle p-2 me-2">
+                                <i class="fas fa-piggy-bank"></i>
+                            </div>
+                            <span class="text-muted small">Net Profit</span>
+                        </div>
+                        <div class="h4 fw-bold mb-0">₹{{ net_profit|floatformat:2|intcomma }}</div>
+                        <div class="small {% if net_profit_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="fas {% if net_profit_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>
+                            {{ net_profit_change|floatformat:2 }}%
+                        </div>
+                    </div>
+                   <div class="mini-chart-placeholder"><canvas id="netProfitMiniChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {# Row 2: Revenue Bar Chart and Category Donut Chart #}
+    <div class="row gy-4 mb-4">
+        {# Revenue Bar Chart Card #}
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Revenue</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Yearly {# Changed dropdown label #}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item active" href="#">Yearly</a></li>
+                            {# Add logic later if needed #}
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {# Revenue Summary Section - Updated #}
+                    <div class="revenue-summary">
+                        <div class="row">
+                             <div class="col-md-6 mb-3 mb-md-0"> {# Added bottom margin for small screens #}
+                                <span class="indicator indicator-revenue"></span>
+                                <span class="label">Revenue</span>
+                                <div class="value">₹{{ total_revenue_period|floatformat:2|intcomma }}</div>
+                                <small class="{% if revenue_period_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    <i class="fas {% if revenue_period_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>{{ revenue_period_change|floatformat:2 }}%
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                               <span class="indicator indicator-order"></span>
+                               <span class="label">Order</span>
+                               <div class="value">{{ total_orders_period|intcomma }}</div>
+                               <small class="{% if orders_period_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                   <i class="fas {% if orders_period_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} me-1"></i>{{ orders_period_change|floatformat:2 }}%
+                               </small>
+                           </div>
+                        </div>
+                    </div>
+                    
+                    {# Chart #}
+                    <div class="chart-container">
+                        <canvas id="monthlyRevenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {# Sales by Category Donut Chart #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Sales by Category</h5>
+                     <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Overall
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item active" href="#">Overall</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center chart-container">
+                     <canvas id="categorySalesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Row 3: Top Products #}
+    <div class="row gy-4">
+        {# Top Selling Products Card #}
+        <div class="col-lg-12">
+            <div class="card shadow-sm h-100 top-products-container">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                     <h5 class="card-title mb-0">Top Selling Products</h5>
+                     <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Overall
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item active" href="#">Overall</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% if top_products %}
+                            {% for product in top_products %}
+                            <li class="list-group-item d-flex align-items-center top-product-item">
+                                {# Placeholder for Image - Add img tag if product.product_image_url exists #}
+                                {# <img src="{{ product.product_image_url|default:'path/to/default_image.png' }}" alt="{{ product.product_name }}"> #}
+                                <div class="flex-grow-1 ms-2">
+                                    <span class="fw-bold d-block">{{ product.product_name }}</span>
+                                    <small class="text-muted">₹{{ product.product_price|floatformat:2 }}</small>
+                                </div>
+                                <span class="badge bg-secondary rounded-pill">{{ product.total_quantity_sold }} sold</span>
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="list-group-item text-muted">No sales data available.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{# Add Chart.js CDN (if not already in base.html) #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{# Add Font Awesome (if not already in base.html) #}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+{% load humanize %}
+
+{# Hidden script tag to pass data safely to JS #}
+<script id="dashboard-data" type="application/json">
+    {
+        "daily_sales_chart_labels": {{ daily_sales_chart_labels_json|safe }},
+        "daily_sales_chart_data": {{ daily_sales_chart_data_json|safe }},
+        "daily_orders_chart_data": {{ daily_orders_chart_data_json|safe }},
+        "monthly_sales_chart_labels": {{ monthly_sales_chart_labels_json|safe }},
+        "monthly_sales_chart_data": {{ monthly_sales_chart_data_json|safe }},
+        "category_sales_chart_labels": {{ category_sales_chart_labels_json|safe }},
+        "category_sales_chart_data": {{ category_sales_chart_data_json|safe }}
+    }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataElement = document.getElementById('dashboard-data');
+    if (!dataElement) {
+        console.error("Dashboard data element not found.");
+        return;
+    }
+    
+    let chartData;
+    try {
+        chartData = JSON.parse(dataElement.textContent);
+    } catch (e) {
+        console.error("Error parsing dashboard data:", e);
+        return;
+    }
+
+    // Helper function for mini chart options
+    const getMiniChartOptions = () => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false }, y: { display: false } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        elements: { point: { radius: 0 }, line: { borderWidth: 2 } }
+    });
+
+    // Helper function for currency formatting
+    const formatCurrency = (value) => {
+        if (typeof value === 'number') {
+             return '₹' + value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } 
+        return value;
+    };
+    const formatCurrencyAxis = (value) => {
+        if (typeof value === 'number') {
+             return '₹' + value.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        } 
+        return value;
+    };
+
+    // --- Monthly Revenue Bar Chart --- 
+    const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
+    if (monthlyRevenueCtx && chartData.monthly_sales_chart_labels && chartData.monthly_sales_chart_data) {
+        new Chart(monthlyRevenueCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.monthly_sales_chart_labels,
+                datasets: [{
+                    label: 'Monthly Revenue',
+                    data: chartData.monthly_sales_chart_data,
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)', 
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: formatCurrencyAxis }
+                    }
+                },
+                 plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                           label: (context) => `${context.dataset.label || ''}: ${formatCurrency(context.parsed.y)}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // --- Sales by Category Donut Chart --- 
+    const categorySalesCtx = document.getElementById('categorySalesChart');
+    if (categorySalesCtx && chartData.category_sales_chart_labels && chartData.category_sales_chart_data) {
+        const categoryColors = [
+             'rgba(54, 162, 235, 0.8)', 'rgba(255, 206, 86, 0.8)', 'rgba(75, 192, 192, 0.8)',
+             'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)', 'rgba(255, 99, 132, 0.8)',
+             'rgba(100, 100, 100, 0.8)', 'rgba(0, 200, 0, 0.8)'
+        ];
+        new Chart(categorySalesCtx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.category_sales_chart_labels,
+                datasets: [{
+                    label: 'Sales Value',
+                    data: chartData.category_sales_chart_data,
+                    backgroundColor: categoryColors.slice(0, chartData.category_sales_chart_labels.length), 
+                    hoverOffset: 4
+                }]
+            },
+             options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12
+                        }
+                    },
+                     tooltip: {
+                        callbacks: {
+                           label: (context) => {
+                                let label = context.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed !== null) {
+                                    label += formatCurrency(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // --- Mini Chart Initializations ---
+    const miniOptions = getMiniChartOptions();
+
+    // Earnings Mini Chart (Dynamic)
+    const earningsMiniCtx = document.getElementById('earningsMiniChart');
+    if (earningsMiniCtx && chartData.daily_sales_chart_labels && chartData.daily_sales_chart_data) {
+         new Chart(earningsMiniCtx, { 
+             type: 'line', 
+             data: { 
+                 labels: chartData.daily_sales_chart_labels, 
+                 datasets: [{ 
+                     data: chartData.daily_sales_chart_data, 
+                     borderColor: 'rgb(25, 135, 84)' 
+                 }] 
+             }, 
+             options: miniOptions 
+         });
+    }
+
+    // Orders Mini Chart (Dynamic)
+    const ordersMiniCtx = document.getElementById('ordersMiniChart');
+    if (ordersMiniCtx && chartData.daily_sales_chart_labels && chartData.daily_orders_chart_data) { 
+         new Chart(ordersMiniCtx, { 
+             type: 'line', 
+             data: { 
+                 labels: chartData.daily_sales_chart_labels, 
+                 datasets: [{ 
+                     data: chartData.daily_orders_chart_data, 
+                     borderColor: 'rgb(255, 193, 7)' 
+                 }] 
+             }, 
+             options: miniOptions 
+         });
+    }
+    
+    // Customers Mini Chart (Static Placeholder)
+    const customersMiniCtx = document.getElementById('customersMiniChart');
+    if (customersMiniCtx) {
+        const staticMiniLabels = ['', '', '', '', '', ''];
+        const staticMiniData = [10, 12, 11, 14, 13, 15]; 
+        new Chart(customersMiniCtx, { 
+            type: 'line', 
+            data: { 
+                labels: staticMiniLabels, 
+                datasets: [{ 
+                    data: staticMiniData, 
+                    borderColor: 'rgb(13, 202, 240)' 
+                }] 
+            }, 
+            options: miniOptions 
+        });
+    }
+
+    // Net Profit Mini Chart (Static Placeholder)
+    const netProfitMiniCtx = document.getElementById('netProfitMiniChart'); 
+    if (netProfitMiniCtx) {
+        const staticMiniLabels = ['', '', '', '', '', ''];
+        const staticMiniData = [5, 8, 6, 9, 7, 10]; 
+         new Chart(netProfitMiniCtx, { 
+             type: 'line', 
+             data: { 
+                 labels: staticMiniLabels, 
+                 datasets: [{ 
+                     data: staticMiniData, 
+                     borderColor: 'rgb(13, 110, 253)' 
+                 }] 
+             }, 
+             options: miniOptions 
+         });
+    }
+
+});
+</script>
+{% endblock %} 

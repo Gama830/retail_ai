@@ -10,7 +10,7 @@
     <!-- 🌐 Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'home' %}">Retail AI</a>
+            <a class="navbar-brand" href="{% url 'dashboard:dashboard_main' %}">Retail AI</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -31,6 +31,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/returns/return/' %}active{% endif %}" href="{% url 'returns:return_product' %}">Return</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/forecast/' %}active{% endif %}" href="{% url 'forecast-home' %}">Demand Forecast</a>
                     </li>
                     {% if request.user.is_superuser %}
                         <li class="nav-item">

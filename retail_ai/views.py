@@ -1,8 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from billing.models import Sale
 from django.db.models import Sum
 import json
 from datetime import datetime
+from django.urls import reverse
 
 def home(request):
     view_type = request.GET.get('view', 'monthly')
@@ -23,3 +24,12 @@ def home(request):
         'data': json.dumps(data),
         'label_text': label_text
     })
+
+def root_view(request):
+    """Redirects to dashboard if logged in, otherwise to login page."""
+    if request.user.is_authenticated:
+        # Use the namespaced URL for the dashboard
+        return redirect(reverse('dashboard:dashboard_main'))
+    else:
+        # Use the namespaced URL for login
+        return redirect(reverse('accounts:login'))

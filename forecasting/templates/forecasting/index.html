@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% load static %}
+{% load forecast_tags %} {# Load custom template tags #}
+
+{% block title %}Demand Forecasting - Retail AI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Demand Forecasting</h1>
+        <form method="post" action="{% url 'forecast-home' %}">
+            {% csrf_token %}
+            <button type="submit" name="generate_forecast" class="btn btn-primary">
+                <i class="fas fa-sync-alt me-1"></i> Generate/Update Forecasts
+            </button>
+        </form>
+    </div>
+
+    {% if messages %}
+        <div class="messages mb-3">
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <p class="text-muted mb-4">Showing predicted demand for the next 30 days. Charts visualize the trend, and the table provides detailed numbers.</p>
+    
+    {% if forecasts_by_product %}
+        <div class="row gy-4">  {# Use gy-4 for vertical spacing between rows #}
+            {% for product, forecasts in forecasts_by_product.items %}
+                <div class="col-lg-6"> {# Display two charts/tables per row on large screens #}
+                    <div class="card shadow-sm h-100"> {# h-100 to make cards in a row equal height #}
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">{{ product.name }} ({{ product.size }}, {{ product.color }})</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container mb-3" style="position: relative; height:250px; width:100%">
+                                <canvas id="forecastChart{{ product.id }}"></canvas>
+                            </div>
+                            <div class="table-responsive" style="max-height: 200px; overflow-y: auto;"> {# Scrollable table #}
+                                <table class="table table-sm table-striped table-hover mb-0 small">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Predicted</th>
+                                            <th>Lower</th>
+                                            <th>Upper</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for forecast in forecasts %}
+                                        <tr>
+                                            <td>{{ forecast.date|date:"Y-m-d" }}</td>
+                                            <td>{{ forecast.predicted_demand }}</td>
+                                            <td>{{ forecast.lower_bound }}</td>
+                                            <td>{{ forecast.upper_bound }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        {# Hidden data block for JavaScript #}
+        <script id="forecast-data" type="application/json">
+            {{ forecasts_by_product|safe_json }}
+        </script>
+        
+    {% else %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center p-5">
+                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                 <p class="text-muted lead">No forecast data available.</p>
+                 <p class="text-muted">Click the "Generate/Update Forecasts" button to create predictions based on historical sales.</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{# Add Font Awesome for icons #}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+{# Add Chart.js CDN #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataElement = document.getElementById('forecast-data');
+    if (!dataElement) return; // Exit if no forecast data element
+
+    const forecastsByProduct = JSON.parse(dataElement.textContent);
+
+    for (const [productId, forecasts] of Object.entries(forecastsByProduct)) {
+        const ctx = document.getElementById(`forecastChart${productId}`);
+        if (!ctx) continue; // Skip if canvas element not found
+
+        // Sort forecasts by date just in case they aren't already
+        forecasts.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        const labels = forecasts.map(f => f.date); // Already YYYY-MM-DD strings
+        const predicted = forecasts.map(f => f.predicted_demand);
+        const lower = forecasts.map(f => f.lower_bound);
+        const upper = forecasts.map(f => f.upper_bound);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Predicted Demand',
+                        data: predicted,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        tension: 0.1,
+                        fill: false,
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Confidence Interval', // Combine bounds
+                        data: upper, // Use upper bound data
+                        borderColor: 'rgba(255, 159, 64, 0.5)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        tension: 0.1,
+                        fill: {
+                           target: 'stack', // Fill between upper and lower
+                           below: 'rgba(255, 159, 64, 0.2)' // Color for the fill area
+                        },
+                        pointRadius: 0,
+                        borderWidth: 1,
+                    },
+                    {
+                        label: '_Lower Bound', // Hidden label for data matching
+                        data: lower,
+                        borderColor: 'rgba(255, 159, 64, 0.5)',
+                        fill: '-1', // Technically fills to dataset 1 (Confidence Interval)
+                        pointRadius: 0,
+                        borderWidth: 1,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                             // Filter out legends starting with _
+                            filter: item => !item.text.startsWith('_')
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    title: {
+                        display: false, // Title is in the card header
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stacked: true, // Enable stacking for fill between bounds
+                        title: {
+                            display: true,
+                            text: 'Quantity'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %} 

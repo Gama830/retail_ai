@@ -30,11 +30,11 @@ def user_login(request):
         if user is not None:
             login(request, user)
             if user.is_superuser:
-                return redirect('home')  # redirect to your dashboard/home
+                return redirect('dashboard:dashboard_main')
             elif user.is_staff_user:
                 return redirect('billing:create_sale')
             # fallback if needed
-            return redirect('home')
+            return redirect('dashboard:dashboard_main')  # redirect to the new dashboard view
         else:
             messages.error(request, "❌ Invalid username or password.")
             return redirect('accounts:login')
