@@ -4,7 +4,7 @@
 
 {% block title %}Dashboard - Retail AI{% endblock %}
 
-{% block extra_head %}{# Add block for potential page-specific CSS #}
+{% block extra_head %}
 <style>
     /* Custom styles to mimic ecomus */
     .kpi-card .card-body {
@@ -173,13 +173,14 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Revenue</h5>
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Yearly {# Changed dropdown label #}
+                    <div class="dropdown period-dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="revenuePeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            Yearly
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item active" href="#">Yearly</a></li>
-                            {# Add logic later if needed #}
+                        <ul class="dropdown-menu" aria-labelledby="revenuePeriodDropdown">
+                            <li><a class="dropdown-item active" href="#" data-period="yearly">Yearly</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="monthly">Monthly</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="weekly">Weekly</a></li>
                         </ul>
                     </div>
                 </div>
@@ -250,30 +251,29 @@
                             <li><a class="dropdown-item active" href="#">Overall</a></li>
                         </ul>
                     </div>
-                </div>
-                <div class="card-body p-0">
-                    <ul class="list-group list-group-flush">
-                        {% if top_products %}
-                            {% for product in top_products %}
-                            <li class="list-group-item d-flex align-items-center top-product-item">
-                                {# Placeholder for Image - Add img tag if product.product_image_url exists #}
-                                {# <img src="{{ product.product_image_url|default:'path/to/default_image.png' }}" alt="{{ product.product_name }}"> #}
-                                <div class="flex-grow-1 ms-2">
-                                    <span class="fw-bold d-block">{{ product.product_name }}</span>
-                                    <small class="text-muted">₹{{ product.product_price|floatformat:2 }}</small>
-                                </div>
-                                <span class="badge bg-secondary rounded-pill">{{ product.total_quantity_sold }} sold</span>
-                            </li>
-                            {% endfor %}
-                        {% else %}
-                            <li class="list-group-item text-muted">No sales data available.</li>
-                        {% endif %}
-                    </ul>
+                 </div>
+                 <div class="card-body">
+                     <ul class="list-group list-group-flush">
+                         {% if top_products %}
+                             {% for product in top_products %}
+                             <li class="list-group-item d-flex align-items-center top-product-item">
+                                 {# Placeholder for Image - Add img tag if product.product_image_url exists #}
+                                 {# <img src="{{ product.product_image_url|default:'path/to/default_image.png' }}" alt="{{ product.product_name }}"> #}
+                                 <div class="flex-grow-1 ms-2">
+                                     <span class="fw-bold d-block">{{ product.product_name }}</span>
+                                     <small class="text-muted">₹{{ product.product_price|floatformat:2 }}</small>
+                                 </div>
+                                 <span class="badge bg-secondary rounded-pill">{{ product.total_quantity_sold }} sold</span>
+                             </li>
+                             {% endfor %}
+                         {% else %}
+                             <li class="list-group-item text-muted">No sales data available.</li>
+                         {% endif %}
+                     </ul>
                 </div>
             </div>
         </div>
     </div>
-
 </div>
 
 {# Add Chart.js CDN (if not already in base.html) #}
@@ -282,21 +282,21 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 {% load humanize %}
 
-{# Hidden script tag to pass data safely to JS #}
+{# Hidden script tag to pass data safely to JS - Updated Keys #}
 <script id="dashboard-data" type="application/json">
     {
         "daily_sales_chart_labels": {{ daily_sales_chart_labels_json|safe }},
         "daily_sales_chart_data": {{ daily_sales_chart_data_json|safe }},
         "daily_orders_chart_data": {{ daily_orders_chart_data_json|safe }},
-        "monthly_sales_chart_labels": {{ monthly_sales_chart_labels_json|safe }},
-        "monthly_sales_chart_data": {{ monthly_sales_chart_data_json|safe }},
+        "revenue_chart_labels_json": {{ revenue_chart_labels_json|safe }},
+        "revenue_chart_data_json": {{ revenue_chart_data_json|safe }},
         "category_sales_chart_labels": {{ category_sales_chart_labels_json|safe }},
         "category_sales_chart_data": {{ category_sales_chart_data_json|safe }}
     }
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
     const dataElement = document.getElementById('dashboard-data');
     if (!dataElement) {
         console.error("Dashboard data element not found.");
@@ -336,17 +336,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Monthly Revenue Bar Chart --- 
     const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
-    if (monthlyRevenueCtx && chartData.monthly_sales_chart_labels && chartData.monthly_sales_chart_data) {
+    if (monthlyRevenueCtx && chartData.revenue_chart_labels_json && chartData.revenue_chart_data_json) {
         new Chart(monthlyRevenueCtx, {
             type: 'bar',
             data: {
-                labels: chartData.monthly_sales_chart_labels,
+                labels: chartData.revenue_chart_labels_json,
                 datasets: [{
-                    label: 'Monthly Revenue',
-                    data: chartData.monthly_sales_chart_data,
-                    backgroundColor: 'rgba(255, 159, 64, 0.6)', 
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    borderWidth: 1
+                    label: 'Revenue',
+                    data: chartData.revenue_chart_data_json,
+                    backgroundColor: 'rgba(253, 126, 20, 0.7)', // Ecomus Orange (adjust opacity as needed)
+                    borderColor: 'rgba(253, 126, 20, 0.7)',
+                    borderWidth: 1,
+                    borderRadius: 6, // Rounded tops for bars
+                    borderSkipped: false // Apply radius to all corners initially (top will be visible)
                 }]
             },
             options: {
@@ -355,14 +357,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { callback: formatCurrencyAxis }
+                        ticks: { callback: formatCurrencyAxis }, // Restore currency formatting
+                        display: true // Show Y axis
+                    },
+                    x: {
+                         display: true // Show X axis
                     }
                 },
                  plugins: {
-                    legend: { display: false },
+                    legend: { display: false }, // Hide legend
                     tooltip: {
+                        // Use default tooltip or customize as needed
+                        backgroundColor: '#343a40', // Darker tooltip background
+                        titleFont: { size: 12 },
+                        bodyFont: { size: 11 },
+                        padding: 8,
                         callbacks: {
-                           label: (context) => `${context.dataset.label || ''}: ${formatCurrency(context.parsed.y)}`
+                           label: (context) => `${context.dataset.label || ''}: ${formatCurrency(context.parsed.y)}` // Keep currency formatting
                         }
                     }
                 }
@@ -415,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // --- Mini Chart Initializations ---
     const miniOptions = getMiniChartOptions();
 
@@ -487,6 +498,36 @@ document.addEventListener('DOMContentLoaded', function() {
          });
     }
 
+    // --- Dropdown Handling (Revenue Chart) ---
+    const revenueDropdownItems = document.querySelectorAll('#revenuePeriodDropdown + .dropdown-menu .dropdown-item');
+    revenueDropdownItems.forEach(item => {
+        item.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent default link behavior
+            const selectedPeriod = this.getAttribute('data-period');
+            
+            // Update URL and reload
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('revenue_period', selectedPeriod);
+            window.location.href = currentUrl.toString();
+        });
+    });
+    
+    // Highlight active dropdown item based on URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentRevenuePeriod = urlParams.get('revenue_period') || 'yearly'; // Default to yearly
+    const revenueDropdownButton = document.getElementById('revenuePeriodDropdown');
+    
+    revenueDropdownItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-period') === currentRevenuePeriod) {
+            item.classList.add('active');
+            if(revenueDropdownButton) {
+                // Capitalize first letter for button text
+                revenueDropdownButton.textContent = currentRevenuePeriod.charAt(0).toUpperCase() + currentRevenuePeriod.slice(1);
+            }
+        }
+    });
+    
 });
 </script>
 {% endblock %} 
